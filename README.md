@@ -30,13 +30,15 @@ npm run start
 ```
 
 ### Usage
-- Send a JSON POST request to `/ask` with the following format:
-```sh
-{
-   "question": "your-question-here"
+Stream the bot's response you should create an EventSource, like the following example:
+
+```js
+const source = new EventSource('http://localhost:3000/bot/ask?question=hello&history=["who are you?"]')
+
+source.onmessage = function(event) {
+  console.log('Received event:', event.data)
 }
 ```
-- The server will search for the best answer to the question and return it as a string in the response body.
-
+[Here is a client example](static/index.html)
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

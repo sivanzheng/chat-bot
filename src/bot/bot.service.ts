@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common'
+import { BaseCallbackHandler } from 'langchain/callbacks'
 import { HNSWLib } from 'langchain/vectorstores/hnswlib'
 import { ConversationalRetrievalQAChain } from 'langchain/chains'
+import { Observable } from 'rxjs'
 
 import { createVectorStore, createChain } from './bot'
 
@@ -27,13 +29,44 @@ export class BotService {
         return this.chain
     }
 
-    async getAnswer(question: string) {
-        let answer = ''
-        const response = await this.chain.call({
-            question,
-            chat_history: answer.length > 0 ? answer : [],
+    getAnswer(
+        question: string,
+        history: string[] = [],
+    ) {
+        return new Observable<string>((subscriber) => {
+            let isStuffDocumentsChain = false
+            const handlers = BaseCallbackHandler.fromMethods({
+                // being called when the chain is started
+                handleChainStart(chain) {
+                    if (chain.name === 'stuff_documents_chain') {
+                        isStuffDocumentsChain = true
+                    }
+                },
+                // _prompts is the related prompts for the question
+                handleLLMStart(llm, _prompts: string[]) {},
+                handleLLMNewToken(token) {
+                    if (isStuffDocumentsChain) {
+                        subscriber.next(token)
+                    }
+                },
+                handleChainEnd() {
+                    isStuffDocumentsChain = false
+                },
+            })
+            this.chain
+                .call(
+                    {
+                        question,
+                        chat_history: history,
+                    },
+                    [handlers],
+                )
+                .catch((err) => {
+                    subscriber.error(err)
+                })
+                .finally(() => {
+                    subscriber.complete()
+                })
         })
-        answer += response.text
-        return answer
     }
 }

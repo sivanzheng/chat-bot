@@ -1,20 +1,20 @@
 import {
-    Body,
     Controller,
-    Post,
+    Query,
+    Sse,
 } from '@nestjs/common'
 import { BotService } from './bot.service'
 
-@Controller()
+@Controller('bot')
 export class BotController {
-    constructor(private readonly appService: BotService) {
+    constructor(private readonly appService: BotService) { }
 
-    }
-
-    @Post('ask')
-    async ask(@Body() body: { question: string }) {
-        const { question } = body
-        const answer = await this.appService.getAnswer(question)
-        return answer
+    @Sse('ask')
+    async ask(
+        @Query('question') question: string,
+        @Query('history') history: string[],
+    ) {
+        const responseSubject = this.appService.getAnswer(question, history)
+        return responseSubject
     }
 }

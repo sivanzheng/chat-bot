@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Bot Client</title>
+</head>
+
+<body>
+    <input type="text" id="message" placeholder="Enter your message here">
+    <button onclick="handleSubmit()">submit</button>
+</body>
+<script type="text/javascript">
+    let sse = null
+    const handleSubmit = () => {
+        const question = document.getElementById('message').value
+        const url = `http://localhost:3000/bot/ask?question=${question}&history=[]`
+        if (sse) {
+            sse.close()
+        }
+        sse = new EventSource(url)
+        sse.onmessage = (event) => {
+            console.log('Received message:', event.data)
+            if (event.data === '\n\n') {
+                sse.close()
+                return
+            }
+            const message = document.createElement('span')
+            message.innerText = event.data
+            document.body.appendChild(message)
+        }
+        sse.onerror = (err) => {
+            sse.close()
+            console.log('Connection was closed by error')
+        }
+        sse.onclose = () => {
+            sse.close()
+            console.log('Connection was closed')
+        }
+    }
+</script>
+
+</html>
