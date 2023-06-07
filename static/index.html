@@ -9,14 +9,16 @@
 </head>
 
 <body>
+    <input type="text" id="topic" placeholder="Enter your topic here">
     <input type="text" id="message" placeholder="Enter your message here">
     <button onclick="handleSubmit()">submit</button>
 </body>
 <script type="text/javascript">
     let sse = null
     const handleSubmit = () => {
+        const topic = document.getElementById('topic').value
         const question = document.getElementById('message').value
-        const url = `http://localhost:3000/bot/ask?question=${question}&history=[]`
+        const url = `http://localhost:3000/dialog?topic=${topic}&question=${question}&history=[]`
         if (sse) {
             sse.close()
         }

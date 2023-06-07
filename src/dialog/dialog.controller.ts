@@ -1,43 +1,45 @@
-import { Injectable } from '@nestjs/common'
-import { BaseCallbackHandler } from 'langchain/callbacks'
-import { HNSWLib } from 'langchain/vectorstores/hnswlib'
-import { ConversationalRetrievalQAChain } from 'langchain/chains'
+import {
+    Controller,
+    Inject,
+    Query,
+    Sse,
+    BadRequestException,
+    UseInterceptors,
+} from '@nestjs/common'
 import { Observable } from 'rxjs'
+import { BaseCallbackHandler } from 'langchain/callbacks'
+import { ConversationalRetrievalQAChain } from 'langchain/chains'
+import { LLM } from 'src/LLM/llm.provider'
+import { TransformResponseInterceptor } from 'src/interceptors/transform-response.interceptor'
 
-import { createVectorStore, createChain } from './bot'
+@Controller('dialog')
+export class DialogController {
+    private chains: Map<string, ConversationalRetrievalQAChain> = new Map()
 
-@Injectable()
-export class BotService {
-    private vectorStore: HNSWLib
-    private chain: ConversationalRetrievalQAChain
+    constructor(
+        @Inject('LLM') private readonly llm: LLM,
+    ) {}
 
-    constructor() {
-        this.initChain()
-    }
-
-    private async getVectorStore() {
-        if (!this.vectorStore) {
-            this.vectorStore = await createVectorStore()
-        }
-        return this.vectorStore
-    }
-
-    private async initChain() {
-        if (!this.chain) {
-            this.chain = await createChain(await this.getVectorStore())
-        }
-        return this.chain
-    }
-
-    getAnswer(
-        question: string,
-        history: string[] = [],
+    @Sse()
+    @UseInterceptors(TransformResponseInterceptor)
+    async ask(
+        @Query('topic') topic: string,
+        @Query('question') question: string,
+        @Query('history') history: string[],
     ) {
+        if (!topic) {
+            throw new BadRequestException('Topic is required')
+        }
+        let qaChain = this.chains.get(topic)
+        if (!qaChain) {
+            qaChain = await this.llm.initChain(topic)
+        }
         return new Observable<string>((subscriber) => {
             let isStuffDocumentsChain = false
             const handlers = BaseCallbackHandler.fromMethods({
                 // being called when the chain is started
                 handleChainStart(chain) {
+                    // https://github.com/hwchase17/langchainjs/issues/754
                     if (chain.name === 'stuff_documents_chain') {
                         isStuffDocumentsChain = true
                     }
@@ -53,7 +55,7 @@ export class BotService {
                     isStuffDocumentsChain = false
                 },
             })
-            this.chain
+            qaChain
                 .call(
                     {
                         question,
