@@ -14,33 +14,42 @@
     <button onclick="handleSubmit()">submit</button>
 </body>
 <script type="text/javascript">
+    const history = []
     let sse = null
     const handleSubmit = () => {
+        let responseText = ''
         const topic = document.getElementById('topic').value
         const question = document.getElementById('message').value
-        const url = `http://localhost:3000/dialog?topic=${topic}&question=${question}&history=[]`
+        const url = `http://localhost:3000/dialog?topic=${topic}&question=${question}&history=${history}`
         if (sse) {
             sse.close()
         }
         sse = new EventSource(url)
+
         sse.onmessage = (event) => {
-            console.log('Received message:', event.data)
             if (event.data === '\n\n') {
                 sse.close()
                 return
             }
+            responseText += event.data
             const message = document.createElement('span')
             message.innerText = event.data
             document.body.appendChild(message)
         }
-        sse.onerror = (err) => {
-            sse.close()
-            console.log('Connection was closed by error')
-        }
+
         sse.onclose = () => {
             sse.close()
+            history.push(responseText)
             console.log('Connection was closed')
         }
+
+        sse.onerror = (err) => {
+            sse.close()
+            history.push(responseText)
+            console.log('Connection was closed by error')
+        }
+        
+        history.push(question)
     }
 </script>
 
