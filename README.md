@@ -23,6 +23,7 @@ npm install
 OPENAI_API_KEY=your-api-key-here
 PROXY_PATH=proxy-path-for-openai
 CHROMA_DB_PATH=chroma-db-path
+ENABLE_PROXY=is-proxy-enabled
 ```
 4. Build the project
 ```sh

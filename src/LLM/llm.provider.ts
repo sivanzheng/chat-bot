@@ -20,11 +20,14 @@ import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
 import { Config } from 'src/config/config.interface'
 import { CONDENSE_PROMPT, QA_PROMPT } from 'src/LLM/prompts'
 
+import { getProxyParams } from 'src/utils'
+
 export class LLM {
     constructor(
         private readonly proxyPath: string,
         private readonly openaiApiKey: string,
         private readonly chromaDbPath: string,
+        private readonly enableProxy: boolean,
     ) {}
 
     async loadDocument(
@@ -67,12 +70,10 @@ export class LLM {
     }
 
     private async initChroma(collectionName: string) {
+        const params = getProxyParams(this.enableProxy, this.proxyPath, this.openaiApiKey)
         const embeddings = new OpenAIEmbeddings(
             {},
-            {
-                basePath: this.proxyPath,
-                apiKey: this.openaiApiKey,
-            },
+            params,
         )
         const vectorStore = await Chroma.fromExistingCollection(
             embeddings,
@@ -85,16 +86,14 @@ export class LLM {
     }
 
     private createChain = async (vectorStore: Chroma) => {
+        const params = getProxyParams(this.enableProxy, this.proxyPath, this.openaiApiKey)
         const model = new OpenAI(
             {
                 temperature: 0,
                 streaming: true,
                 modelName: 'gpt-3.5-turbo',
             },
-            {
-                basePath: this.proxyPath,
-                apiKey: this.openaiApiKey,
-            },
+            params,
         )
         const questionGenerator = new LLMChain({
             llm: model,
@@ -112,14 +111,11 @@ export class LLM {
             retriever: vectorStore.asRetriever(1),
             combineDocumentsChain: docChain,
             questionGeneratorChain: questionGenerator,
-            verbose: true,
         })
         // https://github.com/hwchase17/langchainjs/issues/1327
         chain.memory = new BufferMemory({
             inputKey: 'question',
         })
-
-        console.log('Chain created')
 
         return chain
     }
@@ -138,10 +134,13 @@ export const LLMProvider: Provider<LLM> = {
         const dbPath = configService.get<string>('chromaDbPath')
         const apiKey = configService.get<string>('openaiApiKey')
         const proxyPath = configService.get<string>('proxyPath')
+        const enableProxy = configService.get<boolean>('enableProxy')
+
         return new LLM(
             proxyPath,
             apiKey,
             dbPath,
+            enableProxy,
         )
     },
 }

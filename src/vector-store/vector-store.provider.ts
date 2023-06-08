@@ -3,6 +3,7 @@ import { ChromaClient } from 'chromadb'
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 
 import { ConfigService } from '@nestjs/config'
+import { getProxyParams } from 'src/utils'
 
 export class VectorStore {
     private client: ChromaClient
@@ -11,6 +12,7 @@ export class VectorStore {
         private readonly dbPath: string,
         private readonly apiKey: string,
         private readonly proxyPath: string,
+        private readonly enableProxy: boolean,
     ) {
         this.init()
     }
@@ -48,12 +50,10 @@ export class VectorStore {
     }
 
     private async generateEmbedding(texts: string[]) {
+        const params = getProxyParams(this.enableProxy, this.proxyPath, this.apiKey)
         const embedder = new OpenAIEmbeddings(
             {},
-            {
-                apiKey: this.apiKey,
-                basePath: this.proxyPath,
-            },
+            params,
         )
         return embedder.embedDocuments(texts)
     }
@@ -66,10 +66,12 @@ export const VectorStoreProvider: Provider<VectorStore> = {
         const dbPath = configService.get<string>('chromaDbPath')
         const apiKey = configService.get<string>('openaiApiKey')
         const proxyPath = configService.get<string>('proxyPath')
+        const enableProxy = configService.get<boolean>('enableProxy')
         return new VectorStore(
             dbPath,
             apiKey,
             proxyPath,
+            enableProxy,
         )
     },
 }

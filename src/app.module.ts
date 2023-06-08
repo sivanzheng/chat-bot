@@ -18,6 +18,7 @@ import { FileModule } from 'src/file/file.module'
                 proxyPath: process.env.PROXY_PATH,
                 openaiApiKey: process.env.OPENAI_API_KEY,
                 chromaDbPath: process.env.CHROMA_DB_PATH,
+                enableProxy: process.env.ENABLE_PROXY === 'true',
             })],
         }),
         LLMModule,

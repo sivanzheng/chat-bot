@@ -1,9 +1,10 @@
 import {
     Controller,
+    HttpException,
+    HttpStatus,
     Inject,
     Query,
     Sse,
-    BadRequestException,
     UseInterceptors,
 } from '@nestjs/common'
 import { Observable } from 'rxjs'
@@ -28,7 +29,7 @@ export class DialogController {
         @Query('history') history: string[],
     ) {
         if (!topic) {
-            throw new BadRequestException('Topic is required')
+            throw new HttpException('Topic is required', HttpStatus.BAD_REQUEST)
         }
         let qaChain = this.chains.get(topic)
         if (!qaChain) {
