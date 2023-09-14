@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { LLMProvider } from 'src/LLM/llm.provider'
-import { ConfigProvider } from 'src/config/config.provider'
 
 @Module({
     providers: [
         LLMProvider,
-        ConfigProvider,
+        ConfigService,
     ],
 })
 export class LLMModule {}

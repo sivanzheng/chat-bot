@@ -5,13 +5,11 @@ import {
     Inject,
     Query,
     Sse,
-    UseInterceptors,
 } from '@nestjs/common'
 import { Observable } from 'rxjs'
 import { BaseCallbackHandler } from 'langchain/callbacks'
 import { ConversationalRetrievalQAChain } from 'langchain/chains'
 import { LLM } from 'src/LLM/llm.provider'
-import { TransformResponseInterceptor } from 'src/interceptors/transform-response.interceptor'
 
 @Controller('dialog')
 export class DialogController {
@@ -22,7 +20,6 @@ export class DialogController {
     ) {}
 
     @Sse()
-    @UseInterceptors(TransformResponseInterceptor)
     async ask(
         @Query('topic') topic: string,
         @Query('question') question: string,
@@ -33,27 +30,17 @@ export class DialogController {
         }
         let qaChain = this.chains.get(topic)
         if (!qaChain) {
-            qaChain = await this.llm.initChain(topic)
+            try {
+                qaChain = await this.llm.initChain(topic)
+                this.chains.set(topic, qaChain)
+            } catch (error) {
+                throw new HttpException(error.message, HttpStatus.BAD_REQUEST)
+            }
         }
         return new Observable<string>((subscriber) => {
-            let isStuffDocumentsChain = false
             const handlers = BaseCallbackHandler.fromMethods({
-                // being called when the chain is started
-                handleChainStart(chain) {
-                    // https://github.com/hwchase17/langchainjs/issues/754
-                    if (chain.name === 'stuff_documents_chain') {
-                        isStuffDocumentsChain = true
-                    }
-                },
-                // _prompts is the related prompts for the question
-                handleLLMStart(llm, _prompts: string[]) {},
                 handleLLMNewToken(token) {
-                    if (isStuffDocumentsChain) {
-                        subscriber.next(token)
-                    }
-                },
-                handleChainEnd() {
-                    isStuffDocumentsChain = false
+                    subscriber.next(token)
                 },
             })
             qaChain
