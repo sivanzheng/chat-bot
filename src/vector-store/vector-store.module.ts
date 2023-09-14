@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common'
-import { ConfigProvider } from 'src/config/config.provider'
+import { ConfigService } from '@nestjs/config'
 import { VectorStoreProvider } from 'src/vector-store/vector-store.provider'
 
 @Module({
     providers: [
-        ConfigProvider,
+        ConfigService,
         VectorStoreProvider,
     ],
     exports: [VectorStoreProvider],

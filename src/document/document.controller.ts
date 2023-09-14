@@ -15,7 +15,6 @@ import * as path from 'path'
 import { VectorStore } from 'src/vector-store/vector-store.provider'
 import { LLM } from 'src/LLM/llm.provider'
 import { ParseDocsDto } from 'src/document/document.dto'
-import { TransformResponseInterceptor } from 'src/interceptors/transform-response.interceptor'
 
 @Controller('document')
 export class DocumentController {
@@ -25,14 +24,12 @@ export class DocumentController {
     ) {}
 
     @Get('list')
-    @UseInterceptors(TransformResponseInterceptor)
     async getList() {
         const list = await this.vectorStore.listCollection()
         return list.map((item) => ({ id: item.id, name: item.name }))
     }
 
     @Get('delete/:collectionName')
-    @UseInterceptors(TransformResponseInterceptor)
     async deleteCollection(
         @Param('collectionName') collectionName: string,
     ) {
@@ -41,7 +38,6 @@ export class DocumentController {
     }
 
     @Post('parse')
-    @UseInterceptors(TransformResponseInterceptor)
     async parse(
         @Body() body: ParseDocsDto,
     ) {

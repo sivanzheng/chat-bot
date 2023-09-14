@@ -21,6 +21,7 @@ import { Config } from 'src/config/config.interface'
 import { CONDENSE_PROMPT, QA_PROMPT } from 'src/LLM/prompts'
 
 import { getProxyParams } from 'src/utils'
+import { VectorStore } from 'src/vector-store/vector-store.provider'
 
 export class LLM {
     constructor(
@@ -28,34 +29,35 @@ export class LLM {
         private readonly openaiApiKey: string,
         private readonly chromaDbPath: string,
         private readonly enableProxy: boolean,
-    ) {}
+        private readonly vectorStore: VectorStore,
+    ) { }
 
     async loadDocument(
         blob: Blob,
         type: 'json' | 'txt' | 'csv' | 'pdf' | string,
     ) {
         switch (type) {
-        case 'json': {
-            const loader = new JSONLoader(blob)
-            const docs = await loader.load()
-            return docs
-        }
-        case 'txt': {
-            const loader = new TextLoader(blob)
-            const docs = await loader.load()
-            return docs
-        }
-        case 'csv': {
-            const loader = new CSVLoader(blob)
-            const docs = await loader.load()
-            return docs
-        }
-        case 'pdf': {
-            const loader = new PDFLoader(blob)
-            const docs = await loader.load()
-            return docs
-        }
-        default: throw new Error('Invalid document type')
+            case 'json': {
+                const loader = new JSONLoader(blob)
+                const docs = await loader.load()
+                return docs
+            }
+            case 'txt': {
+                const loader = new TextLoader(blob)
+                const docs = await loader.load()
+                return docs
+            }
+            case 'csv': {
+                const loader = new CSVLoader(blob)
+                const docs = await loader.load()
+                return docs
+            }
+            case 'pdf': {
+                const loader = new PDFLoader(blob)
+                const docs = await loader.load()
+                return docs
+            }
+            default: throw new Error('Invalid document type')
         }
     }
 
@@ -107,20 +109,26 @@ export class LLM {
             },
         )
 
-        const chain = new ConversationalRetrievalQAChain({
-            retriever: vectorStore.asRetriever(1),
-            combineDocumentsChain: docChain,
-            questionGeneratorChain: questionGenerator,
-        })
-        // https://github.com/hwchase17/langchainjs/issues/1327
-        chain.memory = new BufferMemory({
-            inputKey: 'question',
-        })
+        const chain = ConversationalRetrievalQAChain.fromLLM(
+            model,
+            vectorStore.asRetriever(),
+            {
+                memory: new BufferMemory({
+                    memoryKey: 'chat_history',
+                    inputKey: 'question',
+                    outputKey: 'text'
+                }),
+            },
+        )
+        chain.combineDocumentsChain = docChain
+        chain.questionGeneratorChain = questionGenerator
 
         return chain
     }
 
     async initChain(collectionName: string) {
+        const collection = await this.vectorStore.getCollection(collectionName)
+        if (!collection) throw new Error('Collection does not exist')
         const chroma = await this.initChroma(collectionName)
         const chain = await this.createChain(chroma)
         return chain
@@ -130,17 +138,27 @@ export class LLM {
 export const LLMProvider: Provider<LLM> = {
     provide: 'LLM',
     inject: [ConfigService],
-    useFactory: (configService: ConfigService<Config>) => {
+    useFactory: (
+        configService: ConfigService<Config>,
+    ) => {
         const dbPath = configService.get<string>('chromaDbPath')
         const apiKey = configService.get<string>('openaiApiKey')
         const proxyPath = configService.get<string>('proxyPath')
         const enableProxy = configService.get<boolean>('enableProxy')
+
+        const vectorStore = new VectorStore(
+            dbPath,
+            apiKey,
+            proxyPath,
+            enableProxy,
+        )
 
         return new LLM(
             proxyPath,
             apiKey,
             dbPath,
             enableProxy,
+            vectorStore,
         )
     },
 }
